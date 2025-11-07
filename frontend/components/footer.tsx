@@ -1,6 +1,7 @@
 "use client"
 
-import { Github, Twitter, Mail, Rocket } from "lucide-react"
+import Image from "next/image"
+import { Github, Twitter, Mail } from "lucide-react"
 
 export function Footer() {
   return (
@@ -9,7 +10,7 @@ export function Footer() {
         <div className="grid md:grid-cols-4 gap-12 mb-12">
           <div>
             <div className="flex items-center gap-2 mb-4">
-              <Rocket size={20} className="text-accent" />
+              <Image src="/logo.png" alt="Arden Logo" width={24} height={24} />
               <span className="font-bold">Arden</span>
             </div>
             <p className="text-sm text-muted-foreground">Find your first users via incentivized campaigns.</p>

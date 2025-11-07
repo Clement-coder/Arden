@@ -158,11 +158,17 @@ export default function Home() {
               Join thousands of builders and users already using Arden to grow their products.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <button className="flex items-center justify-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-lg font-semibold hover:opacity-90 transition-opacity">
+              <button
+                onClick={() => router.push("/dashboard")}
+                className="flex items-center justify-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-lg font-semibold hover:opacity-90 transition-opacity"
+              >
                 <Rocket size={20} />
                 Create Campaign
               </button>
-              <button className="flex items-center justify-center gap-2 px-6 py-3 bg-muted text-foreground rounded-lg font-semibold hover:bg-muted/80 transition-colors">
+              <button
+                onClick={() => router.push("/dashboard")}
+                className="flex items-center justify-center gap-2 px-6 py-3 bg-muted text-foreground rounded-lg font-semibold hover:bg-muted/80 transition-colors"
+              >
                 Browse Campaigns
                 <ArrowRight size={20} />
               </button>

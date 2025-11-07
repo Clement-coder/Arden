@@ -14,6 +14,7 @@ import { Wrench, User, PlusCircle, BadgeCheck, Search, AlertCircle, LogOut } fro
 import { validateRequired, validateNumber, validateMinLength } from "@/lib/validation"
 import { useLocalStorage } from "@/hooks/use-localStorage"
 import { useRouter } from "next/navigation"
+import { usePrivy } from "@privy-io/react-auth"
 
 interface CampaignData {
   title: string
@@ -24,6 +25,7 @@ interface CampaignData {
 
 export default function Dashboard() {
   const router = useRouter()
+  const { ready, authenticated, user, logout } = usePrivy()
   const [view, setView] = useState<"builder" | "user">("user")
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false)
@@ -31,8 +33,6 @@ export default function Dashboard() {
   const [joinedCampaigns, setJoinedCampaigns] = useLocalStorage<string[]>("joinedCampaigns", [])
   const [createdCampaigns, setCreatedCampaigns] = useLocalStorage<CampaignData[]>("createdCampaigns", [])
   const [searchTerm, setSearchTerm] = useState("")
-  const [userName, setUserName] = useLocalStorage<string | null>("userName", null)
-  const [, setUserData] = useLocalStorage<any | null>("userData", null)
   const [formErrors, setFormErrors] = useState<Record<string, string>>({})
   const [isLoading, setIsLoading] = useState(false)
   const [isShaking, setIsShaking] = useState(false)
@@ -44,13 +44,12 @@ export default function Dashboard() {
   })
 
   useEffect(() => {
-    if (!userName && typeof window !== "undefined") {
-      const timer = setTimeout(() => {
-        router.push("/register")
-      }, 1500)
-      return () => clearTimeout(timer)
+    if (ready && !authenticated) {
+      router.push("/register")
     }
-  }, [userName, router])
+  }, [ready, authenticated, router])
+
+  const userName = user?.google?.name || user?.github?.name
 
   const validateCreateForm = (): boolean => {
     const newErrors: Record<string, string> = {}
@@ -114,11 +113,9 @@ export default function Dashboard() {
     }
   }
 
-  const handleLogout = () => {
-    setUserName(null)
-    setUserData(null)
+  const handleLogout = async () => {
     setIsLogoutModalOpen(false)
-    router.push("/register")
+    await logout()
   }
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -135,14 +132,14 @@ export default function Dashboard() {
       c.description.toLowerCase().includes(searchTerm.toLowerCase()),
   )
 
-  if (!userName) {
+  if (!ready || !authenticated) {
     return (
       <>
         <Navbar />
         <main className="min-h-screen max-w-7xl mx-auto px-6 py-12 flex items-center justify-center">
           <div className="text-center">
             <div className="w-8 h-8 border-2 border-accent/30 border-t-accent rounded-full animate-spin mx-auto mb-4" />
-            <p className="text-muted-foreground">Redirecting to registration...</p>
+            <p className="text-muted-foreground">Loading...</p>
           </div>
         </main>
         <Footer />
@@ -156,7 +153,7 @@ export default function Dashboard() {
       <main className="min-h-screen max-w-7xl mx-auto px-6 py-12">
         {/* Welcome Section */}
         <AnimatedSection className="mb-12 p-6 bg-card border border-border rounded-lg">
-          <div className="flex justify-between items-start">
+          <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
             <div>
               <h1 className="text-3xl font-bold mb-2">Welcome back, {userName} 👋</h1>
               <p className="text-muted-foreground">
@@ -165,7 +162,7 @@ export default function Dashboard() {
             </div>
             <button
               onClick={() => setIsLogoutModalOpen(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-destructive/10 text-destructive rounded-lg hover:bg-destructive/20 transition-colors font-semibold"
+              className="flex items-center gap-2 px-4 py-2 bg-destructive/10 text-destructive rounded-lg hover:bg-destructive/20 transition-colors font-semibold self-start md:self-auto"
             >
               <LogOut size={18} />
               Logout
@@ -175,7 +172,7 @@ export default function Dashboard() {
 
         {/* Tabs */}
         <AnimatedSection className="mb-12">
-          <div className="flex items-center gap-4 mb-8">
+          <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 mb-8">
             <button
               onClick={() => setView("user")}
               className={`flex items-center gap-2 px-4 py-3 rounded-lg font-semibold transition-colors ${
@@ -235,14 +232,14 @@ export default function Dashboard() {
         {/* Builder View */}
         {view === "builder" && (
           <AnimatedSection>
-            <div className="mb-8 flex items-center justify-between">
+            <div className="mb-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
               <div>
                 <h2 className="text-2xl font-bold mb-2">My Campaigns</h2>
                 <p className="text-muted-foreground">Manage your active campaigns and track engagement</p>
               </div>
               <button
                 onClick={() => setIsCreateModalOpen(true)}
-                className="flex items-center gap-2 px-4 py-3 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity font-semibold"
+                className="flex items-center gap-2 px-4 py-3 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity font-semibold self-start md:self-auto"
               >
                 <PlusCircle size={20} />
                 New Campaign

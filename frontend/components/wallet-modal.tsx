@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { X, Wallet, LogOut, Eye } from "lucide-react"
+import { useMediaQuery } from "@/hooks/use-media-query"
 
 interface WalletModalProps {
   isOpen: boolean
@@ -13,6 +14,7 @@ interface WalletModalProps {
 
 export function WalletModal({ isOpen, onClose, onConnect, isConnected }: WalletModalProps) {
   const [balance] = useState("0.00 USDC")
+  const isMobile = useMediaQuery("(max-width: 640px)")
 
   const handleConnect = () => {
     onConnect(true)
@@ -20,6 +22,24 @@ export function WalletModal({ isOpen, onClose, onConnect, isConnected }: WalletM
 
   const handleDisconnect = () => {
     onConnect(false)
+  }
+
+  const modalVariants = {
+    hidden: {
+      opacity: 0,
+      x: isMobile ? 0 : 400,
+      y: isMobile ? 200 : 0,
+    },
+    visible: {
+      opacity: 1,
+      x: 0,
+      y: 0,
+    },
+    exit: {
+      opacity: 0,
+      x: isMobile ? 0 : 400,
+      y: isMobile ? 200 : 0,
+    },
   }
 
   return (
@@ -34,11 +54,12 @@ export function WalletModal({ isOpen, onClose, onConnect, isConnected }: WalletM
             className="fixed inset-0 bg-black/60 z-40"
           />
           <motion.div
-            initial={{ opacity: 0, x: 400 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 400 }}
+            variants={modalVariants}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
             transition={{ type: "spring", damping: 20, stiffness: 300 }}
-            className="fixed right-0 top-0 h-full w-96 bg-card border-l border-border shadow-2xl z-50 overflow-y-auto"
+            className="fixed right-0 top-0 sm:top-auto sm:bottom-0 h-full sm:h-auto w-full sm:w-96 bg-card border-l border-border shadow-2xl z-50 overflow-y-auto rounded-t-lg sm:rounded-t-none"
           >
             <div className="p-6 border-b border-border flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -63,7 +84,7 @@ export function WalletModal({ isOpen, onClose, onConnect, isConnected }: WalletM
                     className="w-full py-2.5 bg-primary text-primary-foreground rounded-lg font-semibold hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
                   >
                     <Wallet size={18} />
-                    Connect Wallet
+                    Wallet
                   </button>
                 </div>
               ) : (
