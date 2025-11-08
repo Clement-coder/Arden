@@ -7,6 +7,7 @@ import { Users, Award, PlusCircle, XCircle } from "lucide-react"
 
 interface CampaignCardProps {
   id: string
+  slug: string
   title: string
   description: string
   icon: ReactNode
@@ -16,10 +17,12 @@ interface CampaignCardProps {
   onJoin: (e: React.MouseEvent) => void
   onLeave: (e: React.MouseEvent) => void
   isBuilder?: boolean
+  onClick?: () => void; // Added onClick prop
 }
 
 export function CampaignCard({
   id,
+  slug,
   title,
   description,
   icon,
@@ -29,9 +32,17 @@ export function CampaignCard({
   onJoin,
   onLeave,
   isBuilder = false,
+  onClick,
 }: CampaignCardProps) {
+  const handleCardClick = (e: React.MouseEvent) => {
+    if (onClick) {
+      e.preventDefault(); // Prevent default Link navigation
+      onClick();
+    }
+  };
+
   return (
-    <Link href={`/campaign/${id}`} className="block h-full">
+    <Link href={isBuilder ? "#" : `/campaign/${slug}`} className="block h-full" onClick={handleCardClick}>
       <motion.div
         whileHover={{ scale: 1.02, y: -4 }}
         className="bg-card border border-border rounded-lg p-6 hover:border-accent/50 transition-colors group h-full flex flex-col"

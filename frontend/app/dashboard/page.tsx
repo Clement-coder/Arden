@@ -1,8 +1,8 @@
 "use client"
 
-import type React from "react"
+import { v4 as uuidv4 } from "uuid"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react" // Added useMemo
 import { Navbar } from "@/components/navbar"
 import { Footer } from "@/components/footer"
 import { AnimatedSection } from "@/components/animated-section"
@@ -12,13 +12,15 @@ import { AlertBox } from "@/components/alert-box"
 import { campaigns } from "@/data/campaign"
 import { FilterDropdown } from "@/components/filter-dropdown"
 import { ProfileModal } from "@/components/ProfileModal"
-import { CreateTaskModal } from "@/components/CreateTaskModal"
 import { Wrench, User, PlusCircle, BadgeCheck, Search, AlertCircle, LogOut} from "lucide-react"
-import { validateRequired, validateNumber } from "@/lib/validation"
+import { validateRequired, validateNumber, validateUrl, validateFutureDatetime } from "@/lib/validation"
 import { useLocalStorage } from "@/hooks/use-localStorage"
 import { useRouter } from "next/navigation"
 import { usePrivy } from "@privy-io/react-auth"
+import { slugify } from "@/lib/utils"
 import { Campaign, Task } from "@/types/campaign"
+import { OwnedCampaignDetailsModal } from "@/components/OwnedCampaignDetailsModal" // New import
+import { DiscoverCampaignDetailsModal } from "@/components/DiscoverCampaignDetailsModal" // New import
 
 interface CampaignFormData {
   campaignName: string
@@ -35,7 +37,6 @@ export default function Dashboard() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false)
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false)
-  const [isCreateTaskModalOpen, setIsCreateTaskModalOpen] = useState(false)
   const [alert, setAlert] = useState({ isVisible: false, message: "", variant: "success" as "success" | "error" })
   const [joinedCampaigns, setJoinedCampaigns] = useLocalStorage<string[]>("joinedCampaigns", [])
   const [createdCampaigns, setCreatedCampaigns] = useLocalStorage<Campaign[]>("createdCampaigns", [])
@@ -51,6 +52,10 @@ export default function Dashboard() {
     campaignEndTime: "",
     tasks: [],
   })
+  const [isOwnedCampaignModalOpen, setIsOwnedCampaignModalOpen] = useState(false); // New state
+  const [selectedOwnedCampaign, setSelectedOwnedCampaign] = useState<Campaign | null>(null); // New state
+  const [isDiscoverCampaignModalOpen, setIsDiscoverCampaignModalOpen] = useState(false); // New state
+  const [selectedDiscoverCampaign, setSelectedDiscoverCampaign] = useState<Campaign | null>(null); // New state
 
   useEffect(() => {
     if (ready && !authenticated) {
@@ -58,9 +63,9 @@ export default function Dashboard() {
     }
   }, [ready, authenticated, router])
 
-  const userName = user?.google?.name || user?.github?.name
-  const userEmail = user?.google?.email || user?.github?.email
-  const userPicture = user?.google?.picture || user?.github?.avatarUrl
+  const userName = user?.google?.name || user?.github?.name || undefined
+  const userEmail = user?.google?.email || user?.github?.email || undefined
+  const userPicture = (user?.google as any)?.picture || (user?.github as any)?.avatarUrl || undefined
 
     const validateCreateForm = (): boolean => {
 
@@ -74,7 +79,7 @@ export default function Dashboard() {
 
   
 
-      const dappLinkError = validateRequired(formData.dappLink, "DApp Link")
+      const dappLinkError = validateUrl(formData.dappLink, "DApp Link")
 
       if (dappLinkError) newErrors[dappLinkError.field] = dappLinkError.message
 
@@ -86,7 +91,7 @@ export default function Dashboard() {
 
   
 
-      const campaignEndTimeError = validateRequired(formData.campaignEndTime, "Campaign End Time")
+      const campaignEndTimeError = validateFutureDatetime(formData.campaignEndTime, "Campaign End Time")
 
       if (campaignEndTimeError) newErrors[campaignEndTimeError.field] = campaignEndTimeError.message
 
@@ -113,8 +118,10 @@ export default function Dashboard() {
     setIsLoading(true)
     await new Promise((resolve) => setTimeout(resolve, 800))
     setIsLoading(false)
+    const newCampaignId = uuidv4(); // Generate ID first
     const newCampaign: Campaign = {
-      id: (createdCampaigns.length + 1).toString(),
+      id: newCampaignId,
+      slug: "", // Initialize slug with an empty string or a temporary value
       factory: "0x0000000000000000000000000000000000000000", // Placeholder
       campaignName: formData.campaignName,
       dappLink: formData.dappLink,
@@ -125,6 +132,7 @@ export default function Dashboard() {
       taskCounter: 0,
       tasks: [],
     }
+    newCampaign.slug = slugify(newCampaign.campaignName) + "-" + newCampaign.id; // Assign correct slug
     setCreatedCampaigns([...createdCampaigns, newCampaign])
     setIsCreateModalOpen(false)
     setFormData({
@@ -169,14 +177,6 @@ export default function Dashboard() {
     setTimeout(() => setAlert({ isVisible: false, message: "", variant: "success" }), 5000)
   }
 
-  const handleAddTask = (newTask: Task) => {
-    setFormData((prev) => ({
-      ...prev,
-      tasks: [...prev.tasks, newTask],
-    }))
-    setIsCreateTaskModalOpen(false)
-  }
-
   const handleLogout = async () => {
     setIsLogoutModalOpen(false)
     await logout()
@@ -190,20 +190,35 @@ export default function Dashboard() {
     }
   }
 
-  const filteredCampaigns = campaigns
+  const handleUpdateCreatedCampaign = (updatedCampaign: Campaign) => {
+    setCreatedCampaigns((prev) =>
+      prev.map((c) => (c.id === updatedCampaign.id ? updatedCampaign : c))
+    );
+  };
+
+  const handleDeleteCreatedCampaign = (campaignId: string) => {
+    setCreatedCampaigns((prev) => prev.filter((c) => c.id !== campaignId));
+  };
+
+  const allAvailableCampaigns = useMemo(() => {
+    const combined = [...campaigns, ...createdCampaigns];
+    const uniqueCampaigns = Array.from(new Set(combined.map(item => item.id)))
+      .map(id => combined.find(item => item.id === id));
+    return uniqueCampaigns.filter(Boolean) as Campaign[]; // Filter out any undefined if find fails
+  }, [createdCampaigns]);
+
+  const filteredCampaigns = allAvailableCampaigns
     .filter((c) => {
-      if (filter === "All") return true
-      if (filter === "Builder") return createdCampaigns.some((cc) => cc.id === c.id)
-      if (filter === "User") return joinedCampaigns.includes(c.id)
-      if (filter === "Joined") return joinedCampaigns.includes(c.id)
-      if (filter === "Unjoined") return !joinedCampaigns.includes(c.id)
-      return true
+      if (filter === "All") return true;
+      if (filter === "Joined") return joinedCampaigns.includes(c.id);
+      if (filter === "Unjoined") return !joinedCampaigns.includes(c.id);
+      return true;
     })
     .filter(
       (c) =>
         c.campaignName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         c.tasks[0]?.description.toLowerCase().includes(searchTerm.toLowerCase()),
-    )
+    );
 
   if (!ready || !authenticated) {
     return (
@@ -295,6 +310,11 @@ export default function Dashboard() {
                 <AnimatedSection key={campaign.id} delay={idx * 0.02}>
                   <CampaignCard
                     id={campaign.id}
+                    slug={campaign.slug || slugify(campaign.campaignName) + "-" + campaign.id}
+                    onClick={() => {
+                      setSelectedDiscoverCampaign(campaign);
+                      setIsDiscoverCampaignModalOpen(true);
+                    }}
                     title={campaign.campaignName}
                     description={campaign.tasks[0]?.description || "No description available."}
                     icon={<Wrench size={24} />}
@@ -332,11 +352,16 @@ export default function Dashboard() {
                   <AnimatedSection key={campaign.id} delay={0}>
                     <CampaignCard
                       id={campaign.id}
-                      title={campaign.title}
-                      description={campaign.description}
+                      slug={campaign.slug}
+                      onClick={() => { // Modified onClick
+                        setSelectedOwnedCampaign(campaign);
+                        setIsOwnedCampaignModalOpen(true);
+                      }}
+                      title={campaign.campaignName}
+                      description={campaign.dappLink}
                       icon={<Wrench size={24} />}
-                      participants={0}
-                      reward={campaign.reward}
+                      participants={campaign.taskCounter}
+                      reward={(campaign.totalBudget ?? 0).toString()}
                       isBuilder={true}
                       onJoin={(e) => {
                         e.stopPropagation()
@@ -453,33 +478,6 @@ export default function Dashboard() {
               </div>
             </div>
 
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-foreground">Tasks</h3>
-              {formData.tasks.length === 0 ? (
-                <p className="text-muted-foreground text-sm">No tasks added yet.</p>
-              ) : (
-                <ul className="space-y-2">
-                  {formData.tasks.map((task, index) => (
-                    <li key={index} className="flex justify-between items-center bg-background border border-border rounded-lg p-3">
-                      <div>
-                        <p className="font-medium">{task.title}</p>
-                        <p className="text-sm text-muted-foreground">{task.description}</p>
-                      </div>
-                      <span className="text-sm font-bold">{task.reward} ETH</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              <button
-                type="button"
-                onClick={() => setIsCreateTaskModalOpen(true)}
-                className="w-full py-2.5 bg-secondary text-secondary-foreground rounded-lg font-semibold hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
-              >
-                <PlusCircle size={18} />
-                Add Task
-              </button>
-            </div>
-
             <button
               type="submit"
               disabled={isLoading}
@@ -537,6 +535,14 @@ export default function Dashboard() {
           joinedCampaigns={joinedCampaigns.length}
         />
 
+        <OwnedCampaignDetailsModal // New modal
+          isOpen={isOwnedCampaignModalOpen}
+          onClose={() => setIsOwnedCampaignModalOpen(false)}
+          campaign={selectedOwnedCampaign}
+          onUpdateCampaign={handleUpdateCreatedCampaign}
+          onDeleteCampaign={handleDeleteCreatedCampaign}
+        />
+
         <AlertBox
           isVisible={alert.isVisible}
           icon={alert.variant === "error" ? <AlertCircle size={20} /> : <BadgeCheck size={20} />}
@@ -545,10 +551,10 @@ export default function Dashboard() {
           onClose={() => setAlert({ isVisible: false, message: "", variant: "success" })}
           variant={alert.variant}
         />
-        <CreateTaskModal
-          isOpen={isCreateTaskModalOpen}
-          onClose={() => setIsCreateTaskModalOpen(false)}
-          onAddTask={handleAddTask}
+        <DiscoverCampaignDetailsModal
+          isOpen={isDiscoverCampaignModalOpen}
+          onClose={() => setIsDiscoverCampaignModalOpen(false)}
+          campaign={selectedDiscoverCampaign}
         />
       </main>
       <Footer />
