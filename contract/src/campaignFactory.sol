@@ -14,7 +14,9 @@ contract CampaignFactory is Ownable {
     mapping(address => bool) public isCampaignAddress;
     bool public paused;
 
+
     event TaskCompleted(address indexed user, address indexed campaign, uint256 indexed taskId);
+
 
     modifier whenNotPaused() {
         if (paused) revert Errors.Factory_Paused();
@@ -57,6 +59,7 @@ contract CampaignFactory is Ownable {
             block.timestamp
         );
     }
+
 
     /**
      * @notice Verify and reward user for completing a task
